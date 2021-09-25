@@ -1,0 +1,5 @@
+packages: 
+  ./actions/actions.cabal
+
+package actions
+  ghc-options: -Werror
