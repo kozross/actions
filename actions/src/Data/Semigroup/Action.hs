@@ -5,12 +5,13 @@
 
 module Data.Semigroup.Action
   ( Action (..),
-    SelfActing (..),
+    react,
   )
 where
 
 import Data.Bifunctor (bimap)
-import Data.Group (Group)
+import Data.Functor.Identity (Identity (Identity))
+import Data.Group (Group (invert))
 import Data.Kind (Type)
 import Data.Proxy (Proxy (Proxy))
 import Data.Semigroup
@@ -45,32 +46,14 @@ class (Semigroup w) => Action (w :: Type) where
   -- | @since 1.0
   act :: w -> Endo (TargetOf w)
 
--- | @since 1.0
-newtype SelfActing (w :: Type) = SelfActing w
-  deriving
-    ( -- | @since 1.0
-      Semigroup,
-      -- | @since 1.0
-      Monoid,
-      -- | @since 1.0
-      Group,
-      -- | @since 1.0
-      Eq
-    )
-    via w
-  deriving stock
-    ( -- | @since 1.0
-      Show
-    )
-
--- | If we want, we can have a 'Semigroup' (and indeed, a 'Monoid' or 'Group')
--- act on itself.
+-- | If we want, we can have a 'Semigroup' (and indeed, a 'Monoid' or
+-- 'Group') act on itself.
 --
 -- @since 1.0
-instance (Semigroup w) => Action (SelfActing w) where
-  type TargetOf (SelfActing w) = w
+instance (Semigroup w) => Action (Identity w) where
+  type TargetOf (Identity w) = w
   {-# INLINEABLE act #-}
-  act (SelfActing x) = Endo $ \y -> y <> x
+  act (Identity x) = Endo (<> x)
 
 -- | Since 'Proxy' is phantom in its last type parameter, it cannot describe any
 -- changes.
@@ -101,7 +84,9 @@ instance (Action w1, Action w2) => Action (w1, w2) where
         Endo g = act y
      in Endo $ bimap f g
 
--- | @since 1.0
+-- | A 'These' of 'Action's can act on a 'These' of their targets.
+--
+-- @since 1.0
 instance (Action w1, Action w2) => Action (These w1 w2) where
   type TargetOf (These w1 w2) = These (TargetOf w1) (TargetOf w2)
   {-# INLINEABLE act #-}
@@ -114,3 +99,13 @@ instance (Action w1, Action w2) => Action (These w1 w2) where
     where
       go :: (Action w) => w -> TargetOf w -> TargetOf w
       go = appEndo . act
+
+-- | Short for @'act' '.' invert'@.
+--
+-- @since 1.0
+react ::
+  forall (w :: Type).
+  (Group w, Action w) =>
+  w ->
+  Endo (TargetOf w)
+react = act . invert

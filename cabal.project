@@ -1,5 +1,9 @@
 packages: 
   ./actions/actions.cabal
+  ./monad-update/monad-update.cabal
 
 package actions
+  ghc-options: -Werror
+
+package monad-update
   ghc-options: -Werror
