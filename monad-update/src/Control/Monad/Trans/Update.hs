@@ -28,6 +28,7 @@ where
 
 import Control.Applicative (Alternative (empty, (<|>)))
 import Control.Monad (MonadPlus)
+import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.Bifunctor (bimap, first)
 import Data.Functor.Alt (Alt ((<!>)))
@@ -134,6 +135,14 @@ instance (Monoid w) => MonadTrans (UpdateT w s) where
 instance (Monoid w) => BindTrans (UpdateT w s) where
   {-# INLINEABLE liftB #-}
   liftB comp = UpdateT $ \_ -> (mempty,) <$> comp
+
+-- | @since 1.0
+instance
+  (MonadIO m, s ~ TargetOf w, Action w, Monoid w) =>
+  MonadIO (UpdateT w s m)
+  where
+  {-# INLINEABLE liftIO #-}
+  liftIO x = UpdateT $ \_ -> (mempty,) <$> liftIO x
 
 -- | Perform the computation, modifying the state according to the action.
 --
