@@ -1,15 +1,23 @@
+{-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Data.Semigroup.Action
-  ( Action (..),
+  ( -- * Type class
+    Action (..),
+
+    -- * Helper functions
+    action,
+    mu,
     react,
   )
 where
 
-import Data.Bifunctor (bimap)
+import Data.Bifunctor (bimap, first, second)
+import Data.Can (Can, can)
 import Data.Functor.Identity (Identity (Identity))
 import Data.Group (Group (invert))
 import Data.Kind (Type)
@@ -18,8 +26,9 @@ import Data.Semigroup
   ( Endo (Endo),
     appEndo,
   )
+import Data.Smash (Smash, smash)
 import Data.These (These, these)
-import Data.These.Combinators (bimapThese, mapHere, mapThere)
+import Data.Wedge (Wedge, wedge)
 
 -- | A (minimally) semigroup action.
 --
@@ -93,12 +102,59 @@ instance (Action w1, Action w2) => Action (These w1 w2) where
   act =
     Endo
       . these
-        (mapHere . go)
-        (mapThere . go)
-        (\x y -> bimapThese (go x) (go y))
-    where
-      go :: (Action w) => w -> TargetOf w -> TargetOf w
-      go = appEndo . act
+        (first . action)
+        (second . action)
+        (\x y -> bimap (action x) (action y))
+
+-- | A 'Can' of 'Action's can act on a 'Can' of their targets.
+--
+-- @since 1.0
+instance (Action w1, Action w2) => Action (Can w1 w2) where
+  type TargetOf (Can w1 w2) = Can (TargetOf w1) (TargetOf w2)
+  {-# INLINEABLE act #-}
+  act =
+    Endo
+      . can
+        id
+        (first . action)
+        (second . action)
+        (\x y -> bimap (action x) (action y))
+
+-- | A 'Smash' of 'Action's can act on a 'Smash' of their targets.
+--
+-- @since 1.0
+instance (Action w1, Action w2) => Action (Smash w1 w2) where
+  type TargetOf (Smash w1 w2) = Smash (TargetOf w1) (TargetOf w2)
+  {-# INLINEABLE act #-}
+  act = Endo . smash id (\x y -> bimap (action x) (action y))
+
+-- | A 'Wedge' of 'Action's can act on a 'Wedge' of their targets.
+--
+-- @since 1.0
+instance (Action w1, Action w2) => Action (Wedge w1 w2) where
+  type TargetOf (Wedge w1 w2) = Wedge (TargetOf w1) (TargetOf w2)
+  {-# INLINEABLE act #-}
+  act = Endo . wedge id (first . action) (second . action)
+
+-- | Get the action as a function, rather than an 'Endo'.
+--
+-- @since 1.0
+action ::
+  forall (w :: Type).
+  (Action w) =>
+  w ->
+  TargetOf w ->
+  TargetOf w
+action = appEndo . act
+
+-- | Short for @'act' 'mempty'@.
+--
+-- @since 1.0
+mu ::
+  forall (w :: Type).
+  (Action w, Monoid w) =>
+  Endo (TargetOf w)
+mu = act @w mempty
 
 -- | Short for @'act' '.' invert'@.
 --

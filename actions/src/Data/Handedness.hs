@@ -13,7 +13,10 @@ import Data.Kind (Type)
 import Data.Semigroup (Endo (Endo))
 import Data.Semigroup.Action (Action (TargetOf, act))
 
--- | @since 1.0
+-- | A 'Left'-biased wrapper around 'Either'; when combining a 'Left' and a
+-- 'Right' with '<>', 'Lefty' will prefer the 'Left' value.
+--
+-- @since 1.0
 newtype Lefty (a :: Type) (b :: Type) = Lefty
   { -- | @since 1.0
     getLefty :: Either a b
@@ -65,7 +68,10 @@ instance (Action a, Action b) => Action (Lefty a b) where
     Left (Endo f) -> first f
     Right (Endo g) -> second g
 
--- | @since 1.0
+-- | A 'Right'-biased wrapper around 'Either'; when combining a 'Left' and a
+-- 'Right' with '<>', 'Righty' will prefer the 'Right' value.
+--
+-- @since 1.0
 newtype Righty (a :: Type) (b :: Type) = Righty
   { -- | @since 1.0
     getRighty :: Either a b

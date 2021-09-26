@@ -1,17 +1,23 @@
 {-# LANGUAGE DeriveFunctor #-}
 {-# LANGUAGE DerivingStrategies #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TupleSections #-}
 {-# LANGUAGE TypeFamilies #-}
 
 module Control.Monad.Trans.Update
-  ( UpdateT,
+  ( -- * Update transformer
+    UpdateT,
+
+    -- * Obtain results
     runUpdateT,
     evalUpdateT,
     execUpdateT,
     traceUpdateT,
     simulateUpdateT,
+
+    -- * Operations
     submit,
     submitM,
     apply,
@@ -20,9 +26,16 @@ module Control.Monad.Trans.Update
   )
 where
 
+import Control.Applicative (Alternative (empty, (<|>)))
+import Control.Monad (MonadPlus)
 import Control.Monad.Trans.Class (MonadTrans (lift))
-import Data.Bifunctor (first)
+import Data.Bifunctor (bimap, first)
+import Data.Functor.Alt (Alt ((<!>)))
+import Data.Functor.Apply (Apply ((<.>)))
+import Data.Functor.Bind (Bind ((>>-)))
+import qualified Data.Functor.Bind.Syntax as Bind
 import Data.Functor.Bind.Trans (BindTrans (liftB))
+import Data.Functor.Plus (Plus)
 import Data.Kind (Type)
 import Data.Semigroup (appEndo)
 import Data.Semigroup.Action (Action (TargetOf, act))
@@ -44,6 +57,17 @@ newtype
 
 -- | @since 1.0
 instance
+  (Bind m, Action w, s ~ TargetOf w) =>
+  Apply (UpdateT w s m)
+  where
+  {-# INLINEABLE (<.>) #-}
+  UpdateT fs <.> UpdateT xs = UpdateT $ \st -> Bind.do
+    (w1, f) <- fs st
+    let st2 = appEndo (act w1) st
+    bimap (w1 <>) f <$> xs st2
+
+-- | @since 1.0
+instance
   (Monad m, Action w, s ~ TargetOf w, Monoid w) =>
   Applicative (UpdateT w s m)
   where
@@ -55,6 +79,36 @@ instance
     let st2 = appEndo (act w1) st
     (w2, x) <- xs st2
     pure (w1 <> w2, f x)
+
+-- | @since 1.0
+instance
+  (Plus m, Action w, s ~ TargetOf w) =>
+  Alt (UpdateT w s m)
+  where
+  {-# INLINEABLE (<!>) #-}
+  UpdateT xs <!> UpdateT ys = UpdateT $ \st -> xs st <!> ys st
+
+-- | @since 1.0
+instance
+  (MonadPlus m, Action w, s ~ TargetOf w, Monoid w) =>
+  Alternative (UpdateT w s m)
+  where
+  {-# INLINEABLE empty #-}
+  empty = UpdateT $ const empty
+  {-# INLINEABLE (<|>) #-}
+  UpdateT xs <|> UpdateT ys = UpdateT $ \st -> xs st <|> ys st
+
+-- | @since 1.0
+instance
+  (Bind m, Action w, s ~ TargetOf w) =>
+  Bind (UpdateT w s m)
+  where
+  {-# INLINEABLE (>>-) #-}
+  UpdateT f >>- g = UpdateT $ \st -> Bind.do
+    (w1, x) <- f st
+    let st2 = appEndo (act w1) st
+    let (UpdateT h) = g x
+    first (w1 <>) <$> h st2
 
 -- | @since 1.0
 instance

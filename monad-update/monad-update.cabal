@@ -32,6 +32,7 @@ common lang
 library
   import:          lang
   exposed-modules: Control.Monad.Trans.Update
+  other-modules:   Data.Functor.Bind.Syntax
   build-depends:
     , actions        ^>=1.0
     , base           >=4.15    && <5
