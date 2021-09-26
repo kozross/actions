@@ -46,7 +46,10 @@ newtype
     (s :: Type)
     (m :: Type -> Type)
     (a :: Type) = UpdateT
-  { -- | @since 1.0
+  { -- | Perform the computation, but don't change the state, instead
+    -- presenting only what changes /would/ have happened.
+    --
+    -- @since 1.0
     simulateUpdateT :: s -> m (w, a)
   }
   deriving stock
@@ -132,7 +135,9 @@ instance (Monoid w) => BindTrans (UpdateT w s) where
   {-# INLINEABLE liftB #-}
   liftB comp = UpdateT $ \_ -> (mempty,) <$> comp
 
--- | @since 1.0
+-- | Perform the computation, modifying the state according to the action.
+--
+-- @since 1.0
 runUpdateT ::
   forall (w :: Type) (m :: Type -> Type) (a :: Type).
   (Action w, Functor m) =>
@@ -142,7 +147,9 @@ runUpdateT ::
 runUpdateT st (UpdateT f) =
   first (($ st) . action) <$> f st
 
--- | @since 1.0
+-- | Perform the computation, discarding the state.
+--
+-- @since 1.0
 evalUpdateT ::
   forall (w :: Type) (s :: Type) (m :: Type -> Type) (a :: Type).
   (Functor m) =>
@@ -151,7 +158,10 @@ evalUpdateT ::
   m a
 evalUpdateT st (UpdateT f) = snd <$> f st
 
--- | @since 1.0
+-- | Perform the computation, modifying the state according to the action, then
+-- discard the result.
+--
+-- @since 1.0
 execUpdateT ::
   forall (w :: Type) (m :: Type -> Type) (a :: Type).
   (Action w, Functor m) =>
@@ -161,7 +171,10 @@ execUpdateT ::
 execUpdateT st (UpdateT f) =
   ($ st) . action . fst <$> f st
 
--- | @since 1.0
+-- | Perform the computation, but don't modify the state, instead returning a
+-- description of what would happen. Discard the result.
+--
+-- @since 1.0
 traceUpdateT ::
   forall (w :: Type) (s :: Type) (m :: Type -> Type) (a :: Type).
   (Functor m) =>
@@ -170,7 +183,9 @@ traceUpdateT ::
   m w
 traceUpdateT st (UpdateT f) = fst <$> f st
 
--- | @since 1.0
+-- | Perform the action specified.
+--
+-- @since 1.0
 submit ::
   forall (w :: Type) (s :: Type) (m :: Type -> Type).
   (Applicative m) =>
@@ -178,7 +193,9 @@ submit ::
   UpdateT w s m ()
 submit x = UpdateT $ \_ -> pure (x, ())
 
--- | @since 1.0
+-- | Perform the action, provided in the context of @m@.
+--
+-- @since 1.0
 submitM ::
   forall (w :: Type) (s :: Type) (m :: Type -> Type).
   (Functor m) =>
@@ -186,7 +203,9 @@ submitM ::
   UpdateT w s m ()
 submitM x = UpdateT $ \_ -> (,()) <$> x
 
--- | @since 1.0
+-- | Perform the action specified, then yield the state that would result.
+--
+-- @since 1.0
 apply ::
   forall (w :: Type) (m :: Type -> Type).
   (Action w, Applicative m) =>
@@ -194,7 +213,10 @@ apply ::
   UpdateT w (TargetOf w) m (TargetOf w)
 apply x = UpdateT $ \st -> pure (x, action x st)
 
--- | @since 1.0
+-- | Perform the action specified in the context of @m@, then yield the state
+-- that would result.
+--
+-- @since 1.0
 applyM ::
   forall (w :: Type) (m :: Type -> Type).
   (Action w, Functor m) =>
@@ -202,7 +224,9 @@ applyM ::
   UpdateT w (TargetOf w) m (TargetOf w)
 applyM x = UpdateT $ \st -> (\y -> (y, action y st)) <$> x
 
--- | @since 1.0
+-- | Short for @'apply' 'mempty'@.
+--
+-- @since 1.0
 query ::
   forall (w :: Type) (m :: Type -> Type).
   (Action w, Monoid w, Applicative m) =>

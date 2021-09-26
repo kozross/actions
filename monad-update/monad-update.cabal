@@ -31,7 +31,10 @@ common lang
 
 library
   import:          lang
-  exposed-modules: Control.Monad.Trans.Update
+  exposed-modules:
+    Control.Monad.Trans.Update
+    Control.Monad.Update
+
   other-modules:   Data.Functor.Bind.Syntax
   build-depends:
     , actions        ^>=1.0
