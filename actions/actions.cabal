@@ -32,7 +32,7 @@ common lang
 library
   import:          lang
   exposed-modules:
-    Data.Handedness
+    Data.Biased
     Data.Semigroup.Action
 
   build-depends:

@@ -37,8 +37,7 @@ import qualified Data.Functor.Bind.Syntax as Bind
 import Data.Functor.Bind.Trans (BindTrans (liftB))
 import Data.Functor.Plus (Plus)
 import Data.Kind (Type)
-import Data.Semigroup (appEndo)
-import Data.Semigroup.Action (Action (TargetOf, act))
+import Data.Semigroup.Action (Action (TargetOf), action)
 
 -- | @since 1.0
 newtype
@@ -63,7 +62,7 @@ instance
   {-# INLINEABLE (<.>) #-}
   UpdateT fs <.> UpdateT xs = UpdateT $ \st -> Bind.do
     (w1, f) <- fs st
-    let st2 = appEndo (act w1) st
+    let st2 = action w1 st
     bimap (w1 <>) f <$> xs st2
 
 -- | @since 1.0
@@ -76,7 +75,7 @@ instance
   {-# INLINEABLE (<*>) #-}
   UpdateT fs <*> UpdateT xs = UpdateT $ \st -> do
     (w1, f) <- fs st
-    let st2 = appEndo (act w1) st
+    let st2 = action w1 st
     (w2, x) <- xs st2
     pure (w1 <> w2, f x)
 
@@ -106,7 +105,7 @@ instance
   {-# INLINEABLE (>>-) #-}
   UpdateT f >>- g = UpdateT $ \st -> Bind.do
     (w1, x) <- f st
-    let st2 = appEndo (act w1) st
+    let st2 = action w1 st
     let (UpdateT h) = g x
     first (w1 <>) <$> h st2
 
@@ -118,7 +117,7 @@ instance
   {-# INLINEABLE (>>=) #-}
   UpdateT f >>= g = UpdateT $ \st -> do
     (w1, x) <- f st
-    let st2 = appEndo (act w1) st
+    let st2 = action w1 st
     let (UpdateT h) = g x
     (w2, y) <- h st2
     pure (w1 <> w2, y)
@@ -141,7 +140,7 @@ runUpdateT ::
   UpdateT w (TargetOf w) m a ->
   m (TargetOf w, a)
 runUpdateT st (UpdateT f) =
-  first (($ st) . appEndo . act) <$> f st
+  first (($ st) . action) <$> f st
 
 -- | @since 1.0
 evalUpdateT ::
@@ -160,7 +159,7 @@ execUpdateT ::
   UpdateT w (TargetOf w) m a ->
   m (TargetOf w)
 execUpdateT st (UpdateT f) =
-  ($ st) . appEndo . act . fst <$> f st
+  ($ st) . action . fst <$> f st
 
 -- | @since 1.0
 traceUpdateT ::
@@ -193,7 +192,7 @@ apply ::
   (Action w, Applicative m) =>
   w ->
   UpdateT w (TargetOf w) m (TargetOf w)
-apply x = UpdateT $ \st -> pure (x, appEndo (act x) st)
+apply x = UpdateT $ \st -> pure (x, action x st)
 
 -- | @since 1.0
 applyM ::
@@ -201,7 +200,7 @@ applyM ::
   (Action w, Functor m) =>
   m w ->
   UpdateT w (TargetOf w) m (TargetOf w)
-applyM x = UpdateT $ \st -> (\y -> (y, appEndo (act y) st)) <$> x
+applyM x = UpdateT $ \st -> (\y -> (y, action y st)) <$> x
 
 -- | @since 1.0
 query ::

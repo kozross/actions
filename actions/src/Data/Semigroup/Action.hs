@@ -1,6 +1,7 @@
 {-# LANGUAGE AllowAmbiguousTypes #-}
 {-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeApplications #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -28,7 +29,6 @@ import Data.Semigroup
   )
 import Data.Smash (Smash, smash)
 import Data.These (These, these)
-import Data.Wedge (Wedge, wedge)
 
 -- | A (minimally) semigroup action.
 --
@@ -81,6 +81,18 @@ instance Action (Endo s) where
   {-# INLINEABLE act #-}
   act = id
 
+-- | For any 'Action', we can adjoin a \'do-nothing\', acting on 'Maybe' of its
+-- target.
+--
+-- @since 1.0
+instance (Action w) => Action (Maybe w) where
+  type TargetOf (Maybe w) = Maybe (TargetOf w)
+  {-# INLINEABLE act #-}
+  act =
+    Endo . \case
+      Nothing -> id
+      Just x -> fmap (action x)
+
 -- | The product of (any number of) 'Action's can act on a product of their
 -- targets.
 --
@@ -88,10 +100,7 @@ instance Action (Endo s) where
 instance (Action w1, Action w2) => Action (w1, w2) where
   type TargetOf (w1, w2) = (TargetOf w1, TargetOf w2)
   {-# INLINEABLE act #-}
-  act (x, y) =
-    let Endo f = act x
-        Endo g = act y
-     in Endo $ bimap f g
+  act (x, y) = Endo $ bimap (action x) (action y)
 
 -- | A 'These' of 'Action's can act on a 'These' of their targets.
 --
@@ -127,14 +136,6 @@ instance (Action w1, Action w2) => Action (Smash w1 w2) where
   type TargetOf (Smash w1 w2) = Smash (TargetOf w1) (TargetOf w2)
   {-# INLINEABLE act #-}
   act = Endo . smash id (\x y -> bimap (action x) (action y))
-
--- | A 'Wedge' of 'Action's can act on a 'Wedge' of their targets.
---
--- @since 1.0
-instance (Action w1, Action w2) => Action (Wedge w1 w2) where
-  type TargetOf (Wedge w1 w2) = Wedge (TargetOf w1) (TargetOf w2)
-  {-# INLINEABLE act #-}
-  act = Endo . wedge id (first . action) (second . action)
 
 -- | Get the action as a function, rather than an 'Endo'.
 --
