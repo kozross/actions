@@ -27,6 +27,7 @@ module Control.Monad.Trans.Update
 where
 
 import Control.Applicative (Alternative (empty, (<|>)))
+import Control.Applicative.Cancellative (Cancellative (cancel))
 import Control.Monad (MonadPlus)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class (MonadTrans (lift))
@@ -37,6 +38,7 @@ import Data.Functor.Bind (Bind ((>>-)))
 import qualified Data.Functor.Bind.Syntax as Bind
 import Data.Functor.Bind.Trans (BindTrans (liftB))
 import Data.Functor.Plus (Plus)
+import Data.Group (Group (invert))
 import Data.Kind (Type)
 import Data.Semigroup.Action (Action (TargetOf), action)
 
@@ -100,6 +102,14 @@ instance
   empty = UpdateT $ const empty
   {-# INLINEABLE (<|>) #-}
   UpdateT xs <|> UpdateT ys = UpdateT $ \st -> xs st <|> ys st
+
+-- | @since 1.0
+instance
+  (MonadPlus m, Cancellative m, Action w, s ~ TargetOf w, Group w) =>
+  Cancellative (UpdateT w s m)
+  where
+  {-# INLINEABLE cancel #-}
+  cancel (UpdateT f) = UpdateT $ \st -> first invert <$> cancel (f st)
 
 -- | @since 1.0
 instance

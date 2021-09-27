@@ -176,5 +176,7 @@ instance
   submit = lift . submit
 
 -- | @since 1.0
-query :: (MonadUpdate w m, Action w) => m (TargetOf w)
+query ::
+  (MonadUpdate w m, Monoid w) =>
+  m (TargetOf w)
 query = apply mempty
