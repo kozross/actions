@@ -1,5 +1,5 @@
 {-# LANGUAGE DeriveFunctor #-}
-{-# LANGUAGE DerivingStrategies #-}
+{-# LANGUAGE DerivingVia #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE QualifiedDo #-}
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -33,14 +33,14 @@ import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.Bifunctor (bimap, first)
 import Data.Functor.Alt (Alt ((<!>)))
-import Data.Functor.Apply (Apply ((<.>)))
+import Data.Functor.Apply (Apply ((<.>)), WrappedApplicative (WrapApplicative))
 import Data.Functor.Bind (Bind ((>>-)))
-import qualified Data.Functor.Bind.Syntax as Bind
 import Data.Functor.Bind.Trans (BindTrans (liftB))
 import Data.Functor.Plus (Plus)
 import Data.Group (Group (invert))
 import Data.Kind (Type)
 import Data.Semigroup.Action (Action (TargetOf), action)
+import qualified Semigroupoids.Do as Bind
 
 -- | @since 1.0
 newtype
@@ -79,11 +79,7 @@ instance
   {-# INLINEABLE pure #-}
   pure x = UpdateT $ \_ -> pure (mempty, x)
   {-# INLINEABLE (<*>) #-}
-  UpdateT fs <*> UpdateT xs = UpdateT $ \st -> do
-    (w1, f) <- fs st
-    let st2 = action w1 st
-    (w2, x) <- xs st2
-    pure (w1 <> w2, f x)
+  (<*>) = liftUpdate2 (<.>)
 
 -- | @since 1.0
 instance
@@ -101,7 +97,7 @@ instance
   {-# INLINEABLE empty #-}
   empty = UpdateT $ const empty
   {-# INLINEABLE (<|>) #-}
-  UpdateT xs <|> UpdateT ys = UpdateT $ \st -> xs st <|> ys st
+  (<|>) = liftUpdate2 (<!>)
 
 -- | @since 1.0
 instance
@@ -129,12 +125,7 @@ instance
   Monad (UpdateT w s m)
   where
   {-# INLINEABLE (>>=) #-}
-  UpdateT f >>= g = UpdateT $ \st -> do
-    (w1, x) <- f st
-    let st2 = action w1 st
-    let (UpdateT h) = g x
-    (w2, y) <- h st2
-    pure (w1 <> w2, y)
+  (>>=) = liftBind (>>-)
 
 -- | @since 1.0
 instance (Monoid w) => MonadTrans (UpdateT w s) where
@@ -251,3 +242,46 @@ query ::
   (Action w, Monoid w, Applicative m) =>
   UpdateT w (TargetOf w) m (TargetOf w)
 query = apply mempty
+
+-- Helpers
+
+newtype WrappedMonad (m :: Type -> Type) (a :: Type) = WrappedMonad
+  { unWrapMonad :: m a
+  }
+  deriving (Functor, Applicative, Alternative, Monad) via m
+  deriving (Apply, Plus) via (WrappedApplicative m)
+
+-- Needed because deriving via breaks on 'some' and 'many'.
+instance (Alternative m) => Alt (WrappedMonad m) where
+  {-# INLINEABLE (<!>) #-}
+  (<!>) = (<|>)
+
+liftUpdate :: UpdateT w s m a -> UpdateT w s (WrappedMonad m) a
+liftUpdate (UpdateT f) = UpdateT $ WrappedMonad . f
+
+lowerUpdate :: UpdateT w s (WrappedMonad m) a -> UpdateT w s m a
+lowerUpdate (UpdateT f) = UpdateT $ unWrapMonad . f
+
+liftUpdate2 ::
+  ( UpdateT w s (WrappedMonad m) a ->
+    UpdateT w s (WrappedMonad m) b ->
+    UpdateT w s (WrappedMonad m) c
+  ) ->
+  UpdateT w s m a ->
+  UpdateT w s m b ->
+  UpdateT w s m c
+liftUpdate2 f x = lowerUpdate . f (liftUpdate x) . liftUpdate
+
+liftBind ::
+  ( UpdateT w s (WrappedMonad m) a ->
+    (a -> UpdateT w s (WrappedMonad m) b) ->
+    UpdateT w s (WrappedMonad m) b
+  ) ->
+  UpdateT w s m a ->
+  (a -> UpdateT w s m b) ->
+  UpdateT w s m b
+liftBind f x g = lowerUpdate . f (liftUpdate x) $ (liftUpdate . g)
+
+instance (Monad m) => Bind (WrappedMonad m) where
+  {-# INLINEABLE (>>-) #-}
+  (>>-) = (>>=)

@@ -35,12 +35,12 @@ library
     Control.Monad.Trans.Update
     Control.Monad.Update
 
-  other-modules:   Data.Functor.Bind.Syntax
   build-depends:
-    , actions        ^>=1.0
-    , base           >=4.15    && <5
-    , group-theory   ^>=0.2.2
-    , semigroupoids  ^>=5.3.5
-    , transformers   ^>=0.5.6.2
+    , actions           ^>=1.0
+    , base              >=4.15    && <5
+    , group-theory      ^>=0.2.2
+    , semigroupoids     ^>=5.3.5
+    , semigroupoids-do  ^>=1.0
+    , transformers      ^>=0.5.6.2
 
   hs-source-dirs:  src
