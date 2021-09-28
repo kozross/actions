@@ -26,14 +26,18 @@ module Control.Monad.Trans.Update
   )
 where
 
-import Control.Applicative (Alternative (empty, (<|>)))
+import Control.Applicative
+  ( Alternative (empty, (<|>)),
+    WrappedMonad (WrapMonad),
+    unwrapMonad,
+  )
 import Control.Applicative.Cancellative (Cancellative (cancel))
 import Control.Monad (MonadPlus)
 import Control.Monad.IO.Class (MonadIO (liftIO))
 import Control.Monad.Trans.Class (MonadTrans (lift))
 import Data.Bifunctor (bimap, first)
 import Data.Functor.Alt (Alt ((<!>)))
-import Data.Functor.Apply (Apply ((<.>)), WrappedApplicative (WrapApplicative))
+import Data.Functor.Apply (Apply ((<.>)))
 import Data.Functor.Bind (Bind ((>>-)))
 import Data.Functor.Bind.Trans (BindTrans (liftB))
 import Data.Functor.Plus (Plus)
@@ -245,22 +249,11 @@ query = apply mempty
 
 -- Helpers
 
-newtype WrappedMonad (m :: Type -> Type) (a :: Type) = WrappedMonad
-  { unWrapMonad :: m a
-  }
-  deriving (Functor, Applicative, Alternative, Monad) via m
-  deriving (Apply, Plus) via (WrappedApplicative m)
-
--- Needed because deriving via breaks on 'some' and 'many'.
-instance (Alternative m) => Alt (WrappedMonad m) where
-  {-# INLINEABLE (<!>) #-}
-  (<!>) = (<|>)
-
 liftUpdate :: UpdateT w s m a -> UpdateT w s (WrappedMonad m) a
-liftUpdate (UpdateT f) = UpdateT $ WrappedMonad . f
+liftUpdate (UpdateT f) = UpdateT $ WrapMonad . f
 
 lowerUpdate :: UpdateT w s (WrappedMonad m) a -> UpdateT w s m a
-lowerUpdate (UpdateT f) = UpdateT $ unWrapMonad . f
+lowerUpdate (UpdateT f) = UpdateT $ unwrapMonad . f
 
 liftUpdate2 ::
   ( UpdateT w s (WrappedMonad m) a ->
@@ -281,7 +274,3 @@ liftBind ::
   (a -> UpdateT w s m b) ->
   UpdateT w s m b
 liftBind f x g = lowerUpdate . f (liftUpdate x) $ (liftUpdate . g)
-
-instance (Monad m) => Bind (WrappedMonad m) where
-  {-# INLINEABLE (>>-) #-}
-  (>>-) = (>>=)
